@@ -37,7 +37,7 @@ Open **http://127.0.0.1:5173**. API documentation is at **http://127.0.0.1:8000/
 
 On Windows, activate the virtual environment with `.venv\Scripts\activate`. Use one backend worker: this application deliberately has one authoritative simulation clock and world. Vite proxies `/api` to port 8000. If you change the backend port, update `frontend/vite.config.js`.
 
-SQLite is created automatically at `backend/data/resqx.sqlite3`. To use a different database, set `RESQ_DB` to a file path. The complete snapshot restores on restart, **paused**. Reset clears the current simulation and its persisted history and reseeds the city. No `.env` is required.
+SQLite is created automatically at `backend/data/resqx.sqlite3`. To use a different database, set `RESQ_DB` to a file path. The complete snapshot restores on restart, **paused**. Older 25-node snapshots automatically gain the new districts and hospitals while preserving existing entity IDs, incidents, occupancy, and road state. Reset clears the current simulation and its persisted history and reseeds the city. No `.env` is required.
 
 `requirements.lock.txt` records the exact Python packages used for verification; install that file instead of `requirements.txt` when you want the same versions. npm uses the committed `frontend/package-lock.json`.
 
@@ -53,13 +53,15 @@ Click **Run guided demo**. The clock advances in half-second simulation ticks.
 | 14s | A school accident adds another patient and rescue requirement | The allocator uses remaining resources and records competition for capacity. |
 | 19s | A hidden blockage is introduced on an active route | A vehicle senses its next edge. Online observation updates knowledge and triggers route repair. |
 
-Pause to inspect the routes, use **Step** to advance 0.5 seconds, select an incident to filter its routes, and click **WHY** beside a decision. The explanation includes the actual rule premises, candidate count, rejected alternatives, enforced constraints and selected route. A pending patient after the ICU event is intentional: the planner does not invent capacity. Use **Inject events → +1 ICU bed** before the patient's deadline to make capacity available again.
+Pause to inspect the routes, use **Step** to advance 0.5 seconds, select a vehicle or incident to emphasize its routes, and click **WHY** beside a decision. The explanation includes the actual rule premises, candidate count, rejected alternatives, enforced constraints and selected route. A pending patient after the ICU event is intentional: the planner does not invent capacity. Use **Inject event → +1 ICU bed** before the patient's deadline to make capacity available again.
+
+The warm, full-width city occupies 78% of desktop viewport height. Statistics and simulation controls sit below the canvas. Click a vehicle, incident, hospital, or road for a compact live details panel. **Incidents & resources** opens the full directory (including pending tasks and inactive resources); **Inject event** opens all event controls and the search laboratory. Expand **Decision log** below the controls for the reasoning history and WHY explanations. Selecting a route keeps other routes visible in a muted color.
 
 Manual controls support all six incident types, severity/population escalation, road blocking/reopening, unknown road information, hospital availability and ICU changes, vehicle failure/restoration, and replanning. The search laboratory compares BFS, DFS, UCS, Greedy and A* on the current graph. See [the detailed demo guide](docs/demo_scenario.md).
 
 ## Features and AI techniques
 
-- **Real 3D city:** 25 graph nodes, 40 roads, two hospitals, factory, school, shelter, residential blocks, response base, vehicles, incident markers and selectable roads.
+- **Real 3D city:** 81 graph nodes, 136 roads, four hospitals, factory, school, shelter, residential blocks, response base, vehicles, incident markers and selectable roads.
 - **Custom search:** BFS, DFS, uniform-cost, Greedy Best-First and A*. A* uses a cost-scaled Manhattan lower bound and ignores known blocked roads.
 - **Rule inference:** a fact knowledge base and fixed-point forward chaining with rule provenance. Evacuation can imply rescue requirements in a second inference step.
 - **CSP allocation:** each response or patient task is a variable; its domain consists of feasible resource/hospital/route combinations. Backtracking, priority ordering, MRV and forward checking enforce resource uniqueness, capability, reachability, capacity, ICU and deadline constraints.
@@ -138,7 +140,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The browser test starts a backend and Vite if they are not already running, walks through the demo and event controls, checks a rendered WebGL canvas and WHY explanations, checks mobile overflow and browser errors, and writes screenshots under `artifacts/`. **It resets the simulation on ports 8000/5173**, including an existing local server on those ports. Stop your own demo before running it. Its own backend uses `/tmp/resqx-browser-test.sqlite3`.
+The browser tests start isolated backend and Vite servers on ports **18000/15173**, exercise the guided demo and contextual entity selection, check WebGL rendering and WHY explanations, and verify mobile layout and browser errors. Screenshots are written under `artifacts/`. Tests use `/tmp/resqx-browser-test.sqlite3`; your normal development servers on ports 8000/5173 are not reused or reset.
 
 The backend suite covers all searches, weighted optimality, blocked/unreachable routes, fixed-point inference, backtracking recovery, propagation, capacity, priority competition, local pair improvement, hospital reassignment, vehicle failure, online discovery, plan preservation, moving-patient custody, persistence and API validation. The full scripted demo checks plan invariants on every tick.
 

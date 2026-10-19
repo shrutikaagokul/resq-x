@@ -12,7 +12,7 @@ Start the backend and frontend using the README. Open the command center and API
 4. Resume until **T+14**. A school accident introduces a third patient and another rescue task. The freed ambulance can serve the noncritical patient using a standard bed; the waiting critical patient cannot be assigned to a standard bed.
 5. At **T+19**, the next route edge of a resource contains a hidden blockage. Online observation discovers it before traversal, records `road_discovered`, and repairs its affected plan. This simulates partial observability; it does not claim real sensors.
 6. Click WHY on a `CSP + A*` assignment. Show facts, rule provenance, candidate count, capacity constraints, hospital choice, route cost and explored nodes. Expand full evidence for the underlying JSON.
-7. In **Inject events**, choose the unavailable hospital/ICU change, add one ICU bed before T+120, and show the waiting critical task become feasible. Let vehicles complete their routes; service is represented by six seconds on scene. Hospital occupancy increases on admission and the ambulance becomes ready for another task.
+7. In **Inject event**, choose the unavailable hospital/ICU change, add one ICU bed before T+120, and show the waiting critical task become feasible. Let vehicles complete their routes; service is represented by six seconds on scene. Hospital occupancy increases on admission and the ambulance becomes ready for another task.
 
 The next injected road is selected from the actual current route, so the scenario remains coherent with previous replans. Pause and step are useful for repeatable inspection.
 
@@ -29,4 +29,4 @@ The next injected road is selected from the actual current route, so the scenari
 
 Blue routes represent ambulances, coral routes fire trucks, gold routes rescue teams. Dashed blue routes are planned patient transport legs. Muted vehicles are unavailable. Orange barricades reflect known graph blockages. A road with unknown status has a yellow dashed centerline. Vehicle locations and routes come from the backend; the browser only interpolates movement.
 
-Priority badges are `P1`–`P5`, with `P5` most urgent. Occupied beds and reserved beds are separate segments; available ICU excludes reservations. Selecting an incident filters route overlays. WHY entries are historical decision snapshots, not explanations regenerated from a later state.
+Priority badges are `P1`–`P5`, with `P5` most urgent. Hospital details list occupied and reserved beds separately; available ICU excludes reservations. Selecting a vehicle or incident emphasizes its routes and mutes other routes. Click entities directly in the city, or select them through the **Incidents & resources** directory. Expand **Decision log** below the controls to inspect historical decisions. WHY entries are historical decision snapshots, not explanations regenerated from a later state.

@@ -2,7 +2,7 @@ from backend.ai.planning.planner import plan
 from backend.ai.planning.decision_explanation import record
 from backend.ai.planning.plan_validator import validate, as_option
 from backend.ai.search.online_search import discover
-from .city import seed_world
+from .city import seed_world, expand_city
 from .graph import Graph
 from .models import Event, Hospital, Incident, Patient
 
@@ -11,6 +11,11 @@ class Simulation:
     def __init__(self, database):
         self.database = database
         self.world = database.load() or seed_world()
+        if self.world.layout_version < 2:
+            expand_city(self.world)
+            self.event('city_expanded', {'layout_version': 2, 'nodes': len(self.world.nodes),
+                                         'roads': len(self.world.roads), 'hospitals': len(self.world.hospitals)})
+            plan(self.world, 'City expanded; existing state preserved')
         self.save()
 
     def save(self):
@@ -84,6 +89,9 @@ class Simulation:
         self.reset()
         self.world.demo_active = True
         self.world.demo_step = 1
+        # A responder starts in the added east district so the demonstration
+        # visibly exercises the expanded routing graph as well as the old core.
+        self.world.resources['RES-02'].location = 'X77'
         self.incident({'id': 'FACTORY-FIRE', 'type': 'INDUSTRIAL', 'location': 'N23',
                        'severity': 4, 'affected_population': 80, 'patients': 2, 'critical_patients': 2})
         self.world.running = True

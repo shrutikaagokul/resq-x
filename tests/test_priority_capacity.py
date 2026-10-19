@@ -3,7 +3,8 @@ from test_simulation import assert_valid
 
 
 def test_preempt_lower_priority_bed_even_with_free_ambulance(sim):
-    sim.world.hospitals['H2'].available = False
+    for h in sim.world.hospitals.values():
+        h.available = h.id == 'H1'
     h = sim.world.hospitals['H1']
     h.total_beds = h.occupied_beds + 1
     medical(sim, id='LOW', severity=1, critical=0)

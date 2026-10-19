@@ -1,5 +1,23 @@
 # Verification record
 
+## Warm city redesign — 11 October 2026
+
+The existing frontend was redesigned in place. No backend source, AI algorithms, API contracts, city graph, or building identities changed.
+
+- `npm run lint`: passed.
+- `npm run build`: passed; the existing large Three.js chunk warning remains.
+- `.venv/bin/python -m pytest -q`: all 39 existing backend tests passed.
+- `npm run test:e2e`: both browser scenarios passed with no console errors.
+- Browser geometry assertions verified a full-width city at 78% of desktop viewport height, no permanent sidebar, and controls below the city.
+- Real canvas clicks verified hospital, vehicle, road, and incident selection; panels displayed the matching live backend values. Incident escalation and road block/reopen controls were exercised.
+- The guided demo, ICU change, online discovery, vehicle failure, event injection, search comparison, WHY explanations and reset were exercised against the unchanged backend.
+- A targeted active-route blockage increased the plan revision and produced a different fire-truck route. The graph nodes and buildings remained identical to seed data.
+- Desktop and 390px mobile screenshots were inspected. The mobile details panel uses a compact scrollable overlay to retain visibility of the city.
+
+Browser tests now use isolated ports 18000/15173 and a test database, avoiding the normal development servers. The README screenshot reflects the redesign. Shared design tokens are in `frontend/src/styles/tokens.css`; Three.js reads the same colors via `cityTheme.js`.
+
+## Original implementation verification
+
 Verified locally on **5 October 2026**, macOS, Python 3.13.7 and Node.js 24.8.0.
 
 | Check | Result |

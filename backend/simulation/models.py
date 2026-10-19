@@ -22,6 +22,7 @@ class Road(BaseModel):
     blocked: bool = False
     known: bool = True
     actual_blocked: bool = False
+    kind: Literal['arterial', 'secondary', 'local'] = 'local'
 
     @property
     def cost(self):
@@ -143,6 +144,7 @@ class Plan(BaseModel):
 
 
 class WorldState(BaseModel):
+    layout_version: int = 1
     nodes: dict[str, Node] = {}
     roads: dict[str, Road] = {}
     buildings: list[Building] = []

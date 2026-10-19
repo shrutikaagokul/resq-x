@@ -1,0 +1,54 @@
+:root {
+  --ivory-blush: #ECDBCF;
+  --warm-cream: #F7F2EB;
+  --sandy-rose: #D6BEB2;
+  --dusty-cedar: #BFAD99;
+  --deep-walnut: #453B35;
+  --sage-green: #8FA18A;
+  --terracotta: #C87862;
+  --muted-gold: #D5B66A;
+  --soft-blue: #8CAFC0;
+  --emergency-red: #C84D4D;
+
+  --page: var(--warm-cream);
+  --text: var(--deep-walnut);
+  --muted: #75675D;
+  --line: color-mix(in srgb, var(--dusty-cedar) 45%, transparent);
+  --surface: var(--warm-cream);
+  --surface-soft: color-mix(in srgb, var(--ivory-blush) 40%, var(--warm-cream));
+  --available-text: #4C6747;
+  --warning-text: #806420;
+  --medical-text: #42677D;
+  --critical-text: #A53636;
+  --scrim: color-mix(in srgb, var(--deep-walnut) 28%, transparent);
+  --panel-shadow: 0 8px 32px color-mix(in srgb, var(--deep-walnut) 10%, transparent);
+
+  --city-ground: #E9DFD2;
+  --city-road: #777C7B;
+  --city-marking: #F8F4ED;
+  --city-residential: #E8D8C8;
+  --city-residential-alt: #DFCEBE;
+  --city-office: var(--sandy-rose);
+  --city-hospital: #DDE7DF;
+  --city-factory: #C9B5A4;
+  --city-school: #E7D8A8;
+  --city-shelter: #B8C7AF;
+  --city-vegetation: #9CAB8D;
+  --city-roof: var(--warm-cream);
+  --city-window: #8BA4AC;
+  --city-water: #8FB8C2;
+  --city-water-highlight: #C4DADC;
+  --city-sidewalk: #D6C7B9;
+  --city-grass: #C4CEAB;
+  --city-bank: #DED0AD;
+  --city-trunk: #8F7660;
+  --city-olive: #89966F;
+  --city-sage: #A8B99C;
+  --city-terracotta: #C87862;
+  --city-mustard: #D8C080;
+  --city-blue-grey: #A8BBC1;
+  --route-medical: #719DB7;
+  --route-fire: var(--terracotta);
+  --route-rescue: #C3A24D;
+  --route-inactive: #B7ADA2;
+}

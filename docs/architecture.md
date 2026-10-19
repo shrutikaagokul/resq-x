@@ -30,7 +30,7 @@ React + Zustand polls `/world-state` every 500 ms. A mutation suppresses polling
 
 React Three Fiber uses the backend node coordinates directly. Roads join their endpoint coordinates; barricades use the backend blocked flag; buildings reference the same nodes. Route lines use the assignment's node path, and vehicle movement interpolates its current backend edge and elapsed traversal progress. The frontend does not choose routes, priorities, assignments or hospitals. All scene geometry and text are local; no remote model, map or font service is needed.
 
-The city uses an orthographic 3D camera with orbit/pan/zoom, dimensional building/vehicle geometry, lights, shadows and depth. It is not a 2D map. Responsive panels stack below the scene on narrow screens.
+The city uses an orthographic 3D camera with orbit/pan/zoom, dimensional building/vehicle geometry, lights, shadows and depth. It is not a 2D map. The canvas fills a full-width container with 78svh height on desktop (72svh on mobile). Statistics and controls sit below it. Entity details float over the city; full resource lists and event controls open in dialogs. The decision log is an expandable section beneath the controls. Selection stores only entity IDs and reads details directly from the latest WorldState. Shared CSS variables in `frontend/src/styles/tokens.css` supply both UI colors and Three.js materials through `cityTheme.js`. There are no permanent sidebars.
 
 ## Persistence
 

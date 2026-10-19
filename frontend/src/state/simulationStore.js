@@ -4,8 +4,12 @@ import { api } from '../services/api'
 let requestSequence = 0
 export const useSimulation = create((set, get) => ({
   world: null, error: null, busy: false, selectedRoad: 'N00-N01', selectedIncident: null, explanation: null,
-  selectRoad: selectedRoad => set({ selectedRoad }),
-  selectIncident: selectedIncident => set({ selectedIncident }),
+  selection: null,
+  selectEntity: (kind, id) => set({ selection: { kind, id }, selectedIncident: kind === 'incident' ? id : null,
+    ...(kind === 'road' ? { selectedRoad: id } : {}) }),
+  clearSelection: () => set({ selection: null, selectedIncident: null }),
+  selectRoad: selectedRoad => set({ selectedRoad, selection: { kind: 'road', id: selectedRoad }, selectedIncident: null }),
+  selectIncident: selectedIncident => set({ selectedIncident, selection: selectedIncident ? { kind: 'incident', id: selectedIncident } : null }),
   clearError: () => set({ error: null }),
   closeExplanation: () => set({ explanation: null }),
   refresh: async () => {
