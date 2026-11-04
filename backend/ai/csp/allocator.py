@@ -3,7 +3,7 @@ from .constraints import Option, Task, consistent
 from .backtracking import solve
 
 
-def tasks_for(world, kb):
+def tasks_for(world, kb, allow_late=False):
     tasks = []
     for incident in world.incidents.values():
         if incident.status == 'RESOLVED':
@@ -24,7 +24,8 @@ def tasks_for(world, kb):
             if patient.incident_id == incident.id and patient.status != 'ADMITTED':
                 tasks.append(Task(patient.id, incident.id, 'AMBULANCE',
                     max(incident.priority, 5 if patient.critical else 1),
-                    incident.created_at + (120 if patient.critical else 220), patient.id))
+                    incident.created_at + (120 if patient.critical else 220), patient.id,
+                    allow_late=allow_late and patient.status == 'WAITING'))
     return tasks
 
 
@@ -69,15 +70,18 @@ def make_domains(world, graph, tasks, reserved):
                         reasons.add(f'{hospital.id}: destination unreachable')
                         continue
                 duration = response.travel_time + 6 + (transport.travel_time if transport else 0)
-                if world.time + duration > task.deadline:
-                    reasons.add(f'{resource.id}: deadline {task.deadline}s cannot be met')
+                is_late = (world.time + duration > task.deadline)
+                if is_late and (not task.allow_late or not task.patient_id):
+                    reasons.add(f'{resource.id}: deadline {task.deadline}s cannot be met (overdue)')
                     continue
-                option = Option(resource.id, hospital.id if hospital else None, response, transport, critical)
+                option = Option(resource.id, hospital.id if hospital else None, response, transport, critical, is_late=is_late)
                 if consistent(reserved + [option], world):
                     values.append(option)
                 else:
                     reasons.add(f'{hospital.id}: remaining beds/ICU reserved or occupied')
-        domains[task.id] = sorted(values, key=lambda o: (o.cost, o.resource_id, o.hospital_id or '')) + [None]
+        if not values and world.time > task.deadline:
+            reasons.add(f'{task.id}: task is overdue (deadline {task.deadline}s < current time {world.time}s)')
+        domains[task.id] = sorted(values, key=lambda o: (o.is_late, o.cost, o.resource_id, o.hospital_id or '')) + [None]
         rejected[task.id] = sorted(reasons)
     return domains, rejected
 

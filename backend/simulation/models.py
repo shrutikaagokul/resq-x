@@ -150,6 +150,7 @@ class Assignment(BaseModel):
     created_at: float
     deadline: float
     priority: int
+    late_rescue: bool = False
 
 
 class Decision(BaseModel):

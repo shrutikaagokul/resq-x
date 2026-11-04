@@ -1,6 +1,7 @@
 from backend.ai.planning.planner import plan
 from backend.ai.planning.decision_explanation import record
 from backend.ai.planning.plan_validator import validate, as_option
+from backend.ai.search.algorithms import astar
 from backend.ai.search.online_search import discover
 from .city import seed_world, expand_city
 from .graph import Graph
@@ -13,6 +14,10 @@ from .traffic import (
     increase_congestion, decrease_congestion,
     create_traffic_incident, clear_traffic_incident,
 )
+
+# Minimum fractional improvement required to switch an active route.
+# Prevents unnecessary churn for tiny cost differences.
+_ROUTE_IMPROVEMENT_THRESHOLD = 0.05  # 5 %
 
 
 class Simulation:
@@ -30,6 +35,65 @@ class Simulation:
 
     def update_incident_lifecycles(self):
         return update_incident_lifecycles(self.world, event_callback=self.event)
+
+    def _improve_routes_after_road_reopen(self, road_id: str) -> int:
+        """Reconsider active RESPONDING routes when a blocked road re-opens.
+
+        For each assignment whose vehicle is still en-route to its destination,
+        A* is used to find the optimal path under current road conditions.
+        If the new route is cheaper by more than _ROUTE_IMPROVEMENT_THRESHOLD,
+        the assignment's route is replaced and the decision is recorded.
+
+        Only RESPONDING assignments (not ON_SCENE or TRANSPORTING) are
+        reconsidered, because those vehicles still have meaningful route
+        choices ahead of them.  The vehicle's current position and progress
+        within its current edge are preserved exactly.
+
+        Returns the number of routes that were improved.
+        """
+        w = self.world
+        graph = Graph(w)
+        improved = 0
+        for assignment in w.plan.assignments:
+            # Skip vehicles that have already arrived or are transporting patients
+            if assignment.phase != 'RESPONDING':
+                continue
+            path = assignment.route.path
+            if len(path) < 2:
+                continue
+            # Current position is path[0] (start of the remaining edge segment)
+            current_node = path[0]
+            destination = path[-1]
+            # Recompute optimal route with current road conditions
+            new_route = astar(graph, current_node, destination)
+            if not new_route.reachable:
+                continue
+            # Compare against remaining cost of current assignment route
+            current_cost = sum(
+                edge.cost
+                for a_node, b_node in zip(path, path[1:])
+                for edge in [graph.edge(a_node, b_node)]
+                if edge is not None
+            )
+            if current_cost <= 0:
+                continue
+            improvement = (current_cost - new_route.cost) / current_cost
+            if improvement > _ROUTE_IMPROVEMENT_THRESHOLD:
+                old_path = list(path)
+                assignment.route = new_route
+                improved += 1
+                record(w, 'ROUTING', 'A* route improvement',
+                       f'{assignment.resource_id}: better route available after {road_id} re-opened'
+                       f' ({old_path} → {new_route.path},'
+                       f' cost {current_cost:.1f} → {new_route.cost:.1f})',
+                       [assignment.resource_id],
+                       road_id=road_id,
+                       old_path=old_path,
+                       new_path=new_route.path,
+                       cost_before=round(current_cost, 3),
+                       cost_after=round(new_route.cost, 3),
+                       improvement_pct=round(improvement * 100, 1))
+        return improved
 
     def save(self):
         self.database.save(self.world)
@@ -129,7 +193,17 @@ class Simulation:
         else:
             raise ValueError('Unknown event')
         self.event(kind, data)
-        plan(w, kind)
+        if kind == 'hospital-change':
+            plan(w, kind, allow_late_rescue=True)
+        else:
+            plan(w, kind)
+        # When a road re-opens, the standard planner only invalidates routes that
+        # pass through still-blocked roads.  Valid routes computed around the
+        # former blockage are kept unchanged even if the re-opened road provides a
+        # shorter alternative.  Apply a targeted route-improvement pass here so
+        # that RESPONDING vehicles can switch to the newly optimal path.
+        if kind == 'road-reopen':
+            self._improve_routes_after_road_reopen(data['road_id'])
         self.update_incident_lifecycles()
         self.save()
 

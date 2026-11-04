@@ -18,10 +18,11 @@ def release(world, assignment):
         patient.hospital_id = None
 
 
-def plan(world, trigger='Manual planning'):
+def plan(world, trigger='Manual planning', allow_late_rescue=False):
     record(world, 'REASONING', 'Forward chaining', f'Observe and reason: {trigger}')
     kb, graph = reason(world), Graph(world)
-    tasks = tasks_for(world, kb)
+    is_hospital_event = allow_late_rescue or 'hospital' in trigger.lower()
+    tasks = tasks_for(world, kb, allow_late=is_hospital_event)
     by_task = {t.id: t for t in tasks}
     keep, invalid = [], []
     for assignment in sorted(world.plan.assignments, key=lambda a: (-by_task.get(a.task_id, a).priority, a.id)):
@@ -97,21 +98,29 @@ def plan(world, trigger='Manual planning'):
             record(world, 'ALLOCATING', 'CSP', f'{task.id}: no feasible assignment', [task.incident_id],
                    reasons=reasons, feasible_domain_size=len(domains[task.id])-1)
             continue
+        is_late_rescue = bool(option.is_late and task.patient_id)
         assignment = Assignment(id=f'A{world.plan.revision}-{task.id}', task_id=task.id,
             incident_id=task.incident_id, resource_id=option.resource_id, patient_id=task.patient_id,
             hospital_id=option.hospital_id, route=option.response.model_copy(deep=True),
             response_route=option.response, transport_route=option.transport,
-            created_at=world.time, deadline=task.deadline, priority=task.priority)
+            created_at=world.time, deadline=task.deadline, priority=task.priority,
+            late_rescue=is_late_rescue)
         keep.append(assignment)
         resource = world.resources[option.resource_id]
         resource.status, resource.assigned_incident = 'RESPONDING', task.incident_id
         if task.patient_id:
             world.patients[task.patient_id].status = 'ASSIGNED'
             world.patients[task.patient_id].hospital_id = option.hospital_id
-        record(world, 'ROUTING', 'CSP + A*', f'{resource.id} → {task.incident_id}' + (f' → {option.hospital_id}' if option.hospital_id else ''),
+        summary = f'{resource.id} → {task.incident_id}' + (f' → {option.hospital_id}' if option.hospital_id else '')
+        if is_late_rescue:
+            summary += f' (late rescue after original deadline {task.deadline:.1f}s)'
+        record(world, 'ROUTING', 'CSP + A*', summary,
             [resource.id, task.incident_id], assignment=assignment.model_dump(),
             rules=[f for f in kb.trace if f['subject'] in (task.incident_id, task.patient_id)],
             rejected_alternatives=rejected[task.id], domain_size=len(domains[task.id])-1,
+            late_rescue=is_late_rescue,
+            original_deadline=task.deadline,
+            dispatch_time=world.time,
             constraints=['availability', 'compatibility', 'all-different resource', 'reachable routes',
                          'cumulative beds/ICU', 'capability', 'deadline', 'lexicographic incident priority'],
             hospital=world.hospitals[option.hospital_id].model_dump() if option.hospital_id else None)
