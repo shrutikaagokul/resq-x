@@ -282,11 +282,6 @@ export default function RouteTrace({
   const activeTravelTime = activeRoad?.travel_time || 5
   const activeTrafficColor = activeRoad ? getTrafficColor(activeRoad, theme) : TRAFFIC_COLORS.FREE
 
-  // Upcoming transport route (when responding)
-  const showTransportRoute = assignment.phase !== 'TRANSPORTING' && (assignment.transport_route?.path?.length || 0) > 1
-  const transportCoords = showTransportRoute ? assignment.transport_route.path.map(id => world.nodes[id]).filter(Boolean) : []
-  const transportPts = computeOffsetPath(transportCoords, laneOffset, y - 0.005)
-
   return (
     <group name={`route-${assignment.resource_id}`} raycast={() => null}>
       {/* 1. Prior fully completed travelled segments */}
@@ -336,32 +331,6 @@ export default function RouteTrace({
                 color={color}
                 lineWidth={lineWidth}
                 opacity={opacity}
-                glow={true}
-              />
-              {road?.blocked && <BlockageMarker position={midPoint} />}
-            </group>
-          )
-        })}
-
-      {/* 4. Upcoming transport route (dashed polyline with segment traffic colors) */}
-      {showTransportRoute &&
-        transportPts.slice(0, -1).map((pt, i) => {
-          const u = assignment.transport_route.path[i]
-          const v = assignment.transport_route.path[i + 1]
-          const road = findRoad(u, v)
-          const color = getTrafficColor(road, theme)
-          const midPoint = [(pt[0] + transportPts[i + 1][0]) / 2, y, (pt[2] + transportPts[i + 1][2]) / 2]
-
-          return (
-            <group key={`transport-${u}-${v}`} raycast={() => null}>
-              <GlowingPolyline
-                points={[pt, transportPts[i + 1]]}
-                color={color}
-                lineWidth={highlighted ? 2.2 : 1.5}
-                opacity={highlighted ? 0.9 : 0.6}
-                dashed={true}
-                dashSize={0.8}
-                gapSize={0.5}
                 glow={true}
               />
               {road?.blocked && <BlockageMarker position={midPoint} />}

@@ -5,7 +5,7 @@ def improve(assignment, domains, compatible):
     Pair moves allow resources to exchange jobs without an infeasible interim state.
     """
     assignment = dict(assignment)
-    cost = lambda a: sum(v.cost for v in a.values() if v is not None)
+    cost = lambda a: sum((10000.0 if getattr(v, 'is_late', False) else 0.0) + v.cost for v in a.values() if v is not None)
     before, steps = cost(assignment), 0
     while steps < 30:
         best, best_cost = assignment, cost(assignment)

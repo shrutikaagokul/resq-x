@@ -10,6 +10,7 @@ class Task:
     priority: int
     deadline: float
     patient_id: str | None = None
+    allow_late: bool = False
 
 
 @dataclass
@@ -19,6 +20,7 @@ class Option:
     response: Route
     transport: Route | None
     critical: bool = False
+    is_late: bool = False
 
     @property
     def cost(self):

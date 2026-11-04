@@ -4,7 +4,8 @@ from backend.ai.csp.constraints import Option, consistent
 def as_option(assignment, world):
     return Option(assignment.resource_id, assignment.hospital_id, assignment.response_route,
                   assignment.transport_route,
-                  bool(assignment.patient_id and world.patients[assignment.patient_id].critical))
+                  bool(assignment.patient_id and world.patients[assignment.patient_id].critical),
+                  is_late=getattr(assignment, 'late_rescue', False))
 
 
 def validate(assignment, world, graph, reservations=()):
@@ -55,6 +56,6 @@ def validate(assignment, world, graph, reservations=()):
     remaining -= assignment.edge_progress
     if assignment.phase != 'TRANSPORTING':
         remaining += assignment.service_remaining
-    if world.time + remaining > assignment.deadline + 0.001:
+    if not (getattr(assignment, 'late_rescue', False) and bool(assignment.patient_id)) and world.time + remaining > assignment.deadline + 0.001:
         reasons.append('Response/transport deadline is no longer feasible')
     return reasons
