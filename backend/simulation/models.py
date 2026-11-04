@@ -1,5 +1,5 @@
 """Serializable domain model. Locations always reference city graph nodes."""
-from typing import Literal
+from typing import Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 
 IncidentType = Literal['FIRE', 'MEDICAL', 'ACCIDENT', 'FLOOD', 'INDUSTRIAL', 'EVACUATION']
@@ -10,6 +10,9 @@ class Node(BaseModel):
     id: str
     x: float
     z: float
+
+
+TrafficLevel = Literal['FREE', 'LOW', 'MODERATE', 'HEAVY', 'GRIDLOCK']
 
 
 class Road(BaseModel):
@@ -23,6 +26,11 @@ class Road(BaseModel):
     known: bool = True
     actual_blocked: bool = False
     kind: Literal['arterial', 'secondary', 'local'] = 'local'
+    # ── Traffic simulation fields (backward-compatible defaults) ──────────
+    base_travel_time: float = Field(default=0.0, ge=0.0)
+    congestion_factor: float = Field(default=1.0, ge=0.0)
+    traffic_level: TrafficLevel = 'FREE'
+    traffic_incident: bool = False
 
     @property
     def cost(self):
@@ -69,6 +77,9 @@ class Resource(BaseModel):
     assigned_incident: str | None = None
 
 
+PatientCondition = Literal['STABLE', 'SERIOUS', 'CRITICAL']
+
+
 class Patient(BaseModel):
     id: str
     incident_id: str
@@ -76,6 +87,23 @@ class Patient(BaseModel):
     status: str = 'WAITING'
     hospital_id: str | None = None
     location: str | None = None
+    health_score: float = Field(default=100.0, ge=0.0, le=100.0)
+    condition: PatientCondition = 'STABLE'
+    waiting_time: float = Field(default=0.0, ge=0.0)
+    deterioration_rate: float = Field(default=1.0, ge=0.0)
+
+    @model_validator(mode='after')
+    def sync_critical_and_condition(self):
+        if self.critical and self.condition != 'CRITICAL':
+            self.condition = 'CRITICAL'
+            if self.health_score > 50.0:
+                self.health_score = 50.0
+        elif self.condition == 'CRITICAL' and not self.critical:
+            self.critical = True
+        return self
+
+
+IncidentStatus = Literal['NEW', 'WAITING', 'RESPONDING', 'IN_PROGRESS', 'RESOLVED', 'UNRESOLVED', 'FAILED']
 
 
 class Incident(BaseModel):
@@ -86,10 +114,15 @@ class Incident(BaseModel):
     affected_population: int = Field(ge=0, le=10000)
     created_at: float
     priority: int = 1
-    status: str = 'WAITING'
+    status: str = 'NEW'
     required_resources: list[str] = []
     assigned_resources: list[str] = []
     completed_tasks: list[str] = []
+    total_tasks: int = 0
+    resolved_at: float | None = None
+    duration: float | None = None
+    resolution_reason: str | None = None
+    last_notified_status: str | None = None
 
 
 class Route(BaseModel):
@@ -162,3 +195,4 @@ class WorldState(BaseModel):
     demo_step: int = 0
     demo_active: bool = False
     version: int = 0
+    traffic_seed: int = 0   # deterministic tick counter for reproducible traffic

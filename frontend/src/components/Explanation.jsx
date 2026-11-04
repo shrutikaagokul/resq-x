@@ -18,6 +18,20 @@ export default function Explanation() {
       <h3>A* response route</h3><p className="mono">{a.response_route.path.join(' → ')}</p><p className="muted">Cost {a.response_route.cost} · travel {a.response_route.travel_time}s · {a.response_route.explored.length} explored nodes</p>
       {a.transport_route && <><h3>Patient transport</h3><p className="mono">{a.transport_route.path.join(' → ')}</p></>}
     </>}
+    {e.previous_condition && e.new_condition && <>
+      <h3>Patient health condition change</h3>
+      <div className="explanation-route" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <span>Patient <strong>{e.patient_id}</strong>:</span>
+        <span className={`condition-badge condition-badge--${e.previous_condition.toLowerCase()}`}>{e.previous_condition}</span>
+        <span>→</span>
+        <span className={`condition-badge condition-badge--${e.new_condition.toLowerCase()}`}>{e.new_condition}</span>
+        {e.updated_health_score !== undefined && (
+          <span className="muted" style={{ fontSize: '11px' }}>
+            (Score: {Number(e.previous_health_score ?? e.previous_health ?? 0).toFixed(1)} → {Number(e.updated_health_score ?? e.updated_health ?? 0).toFixed(1)})
+          </span>
+        )}
+      </div>
+    </>}
     {e.rules?.length > 0 && <><h3>Facts and inference</h3>{e.rules.map((r, i) => <div className="proof" key={i}><code>{r.predicate}({r.subject}, {String(r.value)})</code><small>{r.rule}</small>{r.premises.length > 0 && <small>Because: {r.premises.join(' ∧ ')}</small>}</div>)}</>}
     {e.constraints && <><h3>Enforced constraints</h3><div className="tags">{e.constraints.map(c => <span key={c}>{c}</span>)}</div></>}
     {(e.reasons || e.rejected_alternatives)?.length > 0 && <><h3>{e.reasons ? 'Why the plan changed / could not be assigned' : 'Rejected alternatives'}</h3><ul>{(e.reasons || e.rejected_alternatives).map((r, i) => <li key={i}>{r}</li>)}</ul></>}

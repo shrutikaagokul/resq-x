@@ -56,6 +56,11 @@ class IncidentChange(BaseModel):
     affected_population: int | None = Field(default=None, ge=1, le=10000)
 
 
+class TrafficInput(BaseModel):
+    road_id: str
+    levels: int = Field(default=1, ge=1, le=4)
+
+
 def create_app(db_path=None, auto_tick=True):
     @asynccontextmanager
     async def lifespan(app):
@@ -140,7 +145,9 @@ def create_app(db_path=None, auto_tick=True):
     async def event(kind: str, request: Request):
         models = {'road-block': RoadInput, 'road-reopen': RoadInput, 'road-unknown': RoadInput,
                   'hospital-change': HospitalInput, 'vehicle-failure': ResourceInput,
-                  'vehicle-restore': ResourceInput, 'incident-change': IncidentChange}
+                  'vehicle-restore': ResourceInput, 'incident-change': IncidentChange,
+                  'traffic-congestion': TrafficInput, 'traffic-clear': TrafficInput,
+                  'traffic-incident': RoadInput, 'traffic-incident-clear': RoadInput}
         if kind not in models:
             raise HTTPException(404, 'Unknown event type')
         data = models[kind].model_validate(await request.json())
@@ -150,6 +157,7 @@ def create_app(db_path=None, auto_tick=True):
     @app.post('/replan')
     async def replan():
         plan(sim().world)
+        sim().update_incident_lifecycles()
         sim().save()
         return public_state()
 

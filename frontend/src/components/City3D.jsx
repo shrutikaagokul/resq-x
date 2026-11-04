@@ -6,6 +6,7 @@ import { useSimulation } from '../state/simulationStore'
 import { readCityTheme } from '../styles/cityTheme'
 import Landscape from './city/Landscape'
 import { cameraFrame } from './city/sceneLayout'
+import RouteTrace, { getLaneOffset } from './city/RouteTrace'
 
 const ThemeContext = createContext(null)
 const unitBox = new BoxGeometry(1, 1, 1)
@@ -130,10 +131,11 @@ function Road({ road, nodes, selected, onSelect }) {
   const length = Math.hypot(b.x-a.x, b.z-a.z)
   const width = road.kind === 'arterial' ? 3 : 2.6
   const middle = [(a.x + b.x) / 2, 0.04, (a.z + b.z) / 2]
+  const roadColor = selected ? theme.text : theme.road
   return <group name={`road-${road.id}`}>
     <Box position={[middle[0], -.065, middle[2]]} size={horizontal ? [length, .15, 4.1] : [4.1, .15, length]} color={theme.sidewalk} />
     <Box position={middle} size={horizontal ? [length, 0.12, width] : [width, 0.12, length]}
-      color={road.blocked ? theme.critical : selected ? theme.text : theme.road}
+      color={roadColor}
       onClick={event => { event.stopPropagation(); onSelect(road.id) }} />
     <Line points={[[a.x, 0.12, a.z], [b.x, 0.12, b.z]]} color={road.known ? theme.marking : theme.unknown} lineWidth={0.7} dashed dashSize={0.8} gapSize={0.9} />
     {road.blocked && <group position={[middle[0], 0.65, middle[2]]} rotation={[0, horizontal ? Math.PI / 2 : 0, 0]}>
@@ -144,11 +146,12 @@ function Road({ road, nodes, selected, onSelect }) {
   </group>
 }
 
-function Vehicle({ resource, assignment, world, onSelect, selected }) {
+function Vehicle({ resource, assignment, allAssignments, world, onSelect, selected }) {
   const theme = useContext(ThemeContext)
   const ref = useRef()
   const receivedAt = useRef({ key: '', at: 0 })
   const point = new Vector3()
+  const laneOffset = getLaneOffset(assignment, allAssignments || [])
   useFrame(({ clock }, delta) => {
     const node = world.nodes[resource.location]
     point.set(node.x, 0.55, node.z)
@@ -159,7 +162,14 @@ function Vehicle({ resource, assignment, world, onSelect, selected }) {
       if (receivedAt.current.key !== key) receivedAt.current = { key, at: clock.elapsedTime }
       const elapsed = world.running ? Math.min(0.6, clock.elapsedTime - receivedAt.current.at) : 0
       const progress = Math.min(1, (assignment.edge_progress + elapsed) / road.travel_time)
-      point.set(a.x + (b.x - a.x) * progress, 0.55, a.z + (b.z - a.z) * progress)
+      const dx = b.x - a.x, dz = b.z - a.z
+      const len = Math.hypot(dx, dz) || 1
+      const nx = -dz / len, nz = dx / len
+      point.set(
+        a.x + dx * progress + nx * laneOffset,
+        0.55,
+        a.z + dz * progress + nz * laneOffset
+      )
       ref.current.rotation.y = Math.atan2(b.x - a.x, b.z - a.z)
     }
     ref.current.position.lerp(point, Math.min(1, delta * 12))
@@ -233,17 +243,24 @@ export default function City3D({ world }) {
       {Object.values(world.nodes).map(n => <Intersection key={n.id} node={n} theme={theme} roads={Object.values(world.roads)} />)}
       {Object.values(world.roads).map(road => <Road key={road.id} road={road} nodes={world.nodes} selected={selection?.kind === 'road' && road.id === selection.id} onSelect={selectRoad} />)}
       {world.buildings.map(b => <Building key={b.id} building={b} onSelect={selectEntity} />)}
-      {world.plan.assignments.map(a => {
+      {world.plan.assignments.map((a, vIndex) => {
         const focused = selection?.kind === 'vehicle' || selection?.kind === 'incident'
         const highlighted = !focused || (selection.kind === 'vehicle' ? a.resource_id === selection.id : a.incident_id === selection.id)
-        const color = highlighted ? theme.resources[world.resources[a.resource_id].type] : theme.inactive
-        return <group name={`route-${a.resource_id}`} key={a.id}>
-          {a.route.path.length > 1 && <Line points={a.route.path.map(id => [world.nodes[id].x, highlighted ? 0.32 : 0.24, world.nodes[id].z])} color={color} lineWidth={highlighted ? (focused ? 4.5 : 3) : 1.5} />}
-          {a.phase !== 'TRANSPORTING' && a.transport_route?.path.length > 1 && <Line points={a.transport_route.path.map(id => [world.nodes[id].x, 0.26, world.nodes[id].z])} color={color} lineWidth={highlighted ? 2 : 1} dashed dashSize={0.7} gapSize={0.5} />}
-        </group>
+        return (
+          <RouteTrace
+            key={a.id}
+            assignment={a}
+            allAssignments={world.plan.assignments}
+            world={world}
+            theme={theme}
+            highlighted={highlighted}
+            focused={focused}
+            vIndex={vIndex}
+          />
+        )
       })}
       {Object.values(world.incidents).filter(i => i.status !== 'RESOLVED').map(i => <IncidentMarker key={i.id} incident={i} node={world.nodes[i.location]} onSelect={selectIncident} />)}
-      {Object.values(world.resources).map(r => <Vehicle key={r.id} resource={r} assignment={world.plan.assignments.find(a => a.resource_id === r.id)} world={world} onSelect={selectEntity} selected={selection?.kind === 'vehicle' && selection.id === r.id} />)}
+      {Object.values(world.resources).map(r => <Vehicle key={r.id} resource={r} assignment={world.plan.assignments.find(a => a.resource_id === r.id)} allAssignments={world.plan.assignments} world={world} onSelect={selectEntity} selected={selection?.kind === 'vehicle' && selection.id === r.id} />)}
     </Suspense>
     </ThemeContext.Provider>
   </Canvas></SceneBoundary>

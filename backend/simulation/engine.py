@@ -5,6 +5,14 @@ from backend.ai.search.online_search import discover
 from .city import seed_world, expand_city
 from .graph import Graph
 from .models import Event, Hospital, Incident, Patient
+from .incident_lifecycle import update_incident_lifecycles
+from .patient_health import init_patient_health, update_all_patients_health
+from .traffic import (
+    init_all_traffic, apply_traffic_to_roads, apply_emergency_priority,
+    evolve_traffic, routes_need_replan,
+    increase_congestion, decrease_congestion,
+    create_traffic_incident, clear_traffic_incident,
+)
 
 
 class Simulation:
@@ -16,19 +24,29 @@ class Simulation:
             self.event('city_expanded', {'layout_version': 2, 'nodes': len(self.world.nodes),
                                          'roads': len(self.world.roads), 'hospitals': len(self.world.hospitals)})
             plan(self.world, 'City expanded; existing state preserved')
+        init_all_traffic(self.world)
+        apply_traffic_to_roads(self.world)
         self.save()
+
+    def update_incident_lifecycles(self):
+        return update_incident_lifecycles(self.world, event_callback=self.event)
 
     def save(self):
         self.database.save(self.world)
 
     def reset(self):
         self.world = seed_world()
+        init_all_traffic(self.world)
+        apply_traffic_to_roads(self.world)
         self.save()
 
     def event(self, kind, payload):
         w = self.world
         w.events.append(Event(id=f'E{len(w.events)+1:05}', timestamp=w.time, type=kind, payload=payload))
-        record(w, 'CHANGE DETECTED', 'World observation', kind.replace('_', ' ').capitalize(), **payload)
+        summary = kind.replace('_', ' ').capitalize()
+        if kind == 'patient_condition_change' and 'previous_condition' in payload and 'new_condition' in payload:
+            summary = f"Patient {payload.get('patient_id', '')} condition: {payload['previous_condition']} → {payload['new_condition']}"
+        record(w, 'CHANGE DETECTED', 'World observation', summary, **payload)
 
     def incident(self, data, replan=True):
         w = self.world
@@ -41,15 +59,19 @@ class Simulation:
         if critical > count:
             raise ValueError('Critical patients cannot exceed total patients')
         incident = Incident(id=id, type=data['type'], location=data['location'], severity=data['severity'],
-                            affected_population=data['affected_population'], created_at=w.time)
+                            affected_population=data['affected_population'], created_at=w.time, status='NEW')
         w.incidents[id] = incident
         for n in range(count):
             p = Patient(id=f'{id}-P{n+1}', incident_id=id, critical=n < critical)
+            init_patient_health(p)
             w.patients[p.id] = p
         self.event('new_emergency', incident.model_dump())
         if replan:
             plan(w, f'New {incident.type.lower()} incident {id}')
+            self.update_incident_lifecycles()
             self.save()
+        else:
+            self.update_incident_lifecycles()
         return incident
 
     def change(self, kind, data):
@@ -79,10 +101,36 @@ class Simulation:
                 raise ValueError('Unknown or resolved incident')
             updates = {k: v for k, v in data.items() if k != 'incident_id' and v is not None}
             w.incidents[id] = Incident.model_validate({**w.incidents[id].model_dump(), **updates})
+        elif kind == 'traffic-congestion':
+            payload = increase_congestion(w, data['road_id'], data.get('levels', 1))
+            self.event(kind, payload)
+            plan(w, f'Traffic congestion increased on {data["road_id"]}')
+            self.save()
+            return
+        elif kind == 'traffic-clear':
+            payload = decrease_congestion(w, data['road_id'], data.get('levels', 2))
+            self.event(kind, payload)
+            plan(w, f'Traffic congestion reduced on {data["road_id"]}')
+            self.save()
+            return
+        elif kind == 'traffic-incident':
+            payload = create_traffic_incident(w, data['road_id'])
+            self.event(kind, payload)
+            plan(w, f'Traffic incident on {data["road_id"]}')
+            self.save()
+            return
+        elif kind == 'traffic-incident-clear':
+            payload = clear_traffic_incident(w, data['road_id'])
+            self.event(kind, payload)
+            plan(w, f'Traffic incident cleared on {data["road_id"]}')
+            self.update_incident_lifecycles()
+            self.save()
+            return
         else:
             raise ValueError('Unknown event')
         self.event(kind, data)
         plan(w, kind)
+        self.update_incident_lifecycles()
         self.save()
 
     def demo(self):
@@ -126,7 +174,26 @@ class Simulation:
             return
         w = self.world
         w.time = round(w.time + seconds, 3)
+        w.traffic_seed += 1
         self.demo_events()
+        # ── Traffic update (before Graph construction so algorithms use new costs) ─────
+        traffic_changes = evolve_traffic(w, seconds)
+        apply_traffic_to_roads(w)
+        apply_emergency_priority(w)
+        if traffic_changes:
+            # Emit events only for level transitions
+            for change in traffic_changes:
+                self.event('traffic_level_change', change)
+        replan_traffic = routes_need_replan(w)
+        # ── Patient health ───────────────────────────────────────────────────
+        transitions = update_all_patients_health(w, seconds)
+        became_critical = False
+        for transition in transitions:
+            self.event('patient_condition_change', transition)
+            if transition['new_condition'] == 'CRITICAL' and transition['critical_changed']:
+                became_critical = True
+        if became_critical:
+            plan(w, 'Patient condition escalated to CRITICAL')
         reservations = []
         for assignment in w.plan.assignments:
             if validate(assignment, w, Graph(w), reservations):
@@ -185,16 +252,12 @@ class Simulation:
             w.incidents[assignment.incident_id].completed_tasks.append(assignment.task_id)
             record(w, 'EXECUTING', 'Plan execution', f'{assignment.resource_id}: task {assignment.task_id} completed',
                    [assignment.resource_id], hospital_id=assignment.hospital_id)
-        if completed:
-            from backend.ai.csp.allocator import tasks_for
-            from backend.ai.logic.inference import reason
-            remaining = tasks_for(w, reason(w))
-            for incident in w.incidents.values():
-                if not any(t.incident_id == incident.id for t in remaining):
-                    incident.status = 'RESOLVED'
         if completed or discovered:
             plan(w, 'Task completed / new road observation')
+        elif replan_traffic:
+            plan(w, 'Traffic congestion changed route cost significantly')
         else:
             w.ai_status = 'EXECUTING' if w.plan.assignments else 'OBSERVING'
+        self.update_incident_lifecycles()
         w.version += 1
         self.save()

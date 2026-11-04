@@ -16,5 +16,12 @@ export function readCityTheme() {
     resources: { AMBULANCE: token('route-medical'), FIRE_TRUCK: token('route-fire'), RESCUE_TEAM: token('route-rescue') },
     buildings: { hospital: token('city-hospital'), factory: token('city-factory'), school: token('city-school'),
       shelter: token('city-shelter'), station: token('city-office'), residential: token('city-residential') },
+    traffic: {
+      FREE:     token('traffic-free'),
+      LOW:      token('traffic-low'),
+      MODERATE: token('traffic-moderate'),
+      HEAVY:    token('traffic-heavy'),
+      GRIDLOCK: token('traffic-gridlock'),
+    },
   }
 }

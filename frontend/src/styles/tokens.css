@@ -51,4 +51,11 @@
   --route-fire: var(--terracotta);
   --route-rescue: #C3A24D;
   --route-inactive: #B7ADA2;
+
+  /* Traffic level colours */
+  --traffic-free:     #2979FF;   /* Google Maps-style Blue */
+  --traffic-low:      #2979FF;   /* Google Maps-style Blue */
+  --traffic-moderate: #F59E0B;   /* Google Maps-style Yellow */
+  --traffic-heavy:    #F97316;   /* Google Maps-style Orange */
+  --traffic-gridlock: #DC2626;   /* Google Maps-style Red */
 }
