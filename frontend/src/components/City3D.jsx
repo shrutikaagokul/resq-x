@@ -7,6 +7,7 @@ import { readCityTheme } from '../styles/cityTheme'
 import Landscape from './city/Landscape'
 import { cameraFrame } from './city/sceneLayout'
 import RouteTrace, { getLaneOffset } from './city/RouteTrace'
+import IncidentMarker from './city/effects/IncidentMarker'
 
 const ThemeContext = createContext(null)
 const unitBox = new BoxGeometry(1, 1, 1)
@@ -197,17 +198,6 @@ function Vehicle({ resource, assignment, allAssignments, world, onSelect, select
   </group>
 }
 
-function IncidentMarker({ incident, node, onSelect }) {
-  const theme = useContext(ThemeContext)
-  const ring = useRef()
-  useFrame(({ clock }) => { if (ring.current) ring.current.scale.setScalar(1 + Math.sin(clock.elapsedTime * 2) * 0.09) })
-  return <group position={[node.x, 0.2, node.z]} onClick={event => { event.stopPropagation(); onSelect(incident.id) }}>
-    <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[2, 2.35, 48]} /><meshBasicMaterial color={theme.critical} transparent opacity={0.75} /></mesh>
-    <mesh position={[0, 2.3, 0]}><octahedronGeometry args={[0.7]} /><meshStandardMaterial color={theme.critical} /></mesh>
-    <Label position={[0, 4, 0]} text={`${incident.type} · P${incident.priority}`} color={theme.text} border={theme.critical} />
-  </group>
-}
-
 function CameraRig({ nodes, buildings }) {
   const { size } = useThree()
   const key = JSON.stringify([nodes, buildings])
@@ -259,7 +249,19 @@ export default function City3D({ world }) {
           />
         )
       })}
-      {Object.values(world.incidents).filter(i => i.status !== 'RESOLVED').map(i => <IncidentMarker key={i.id} incident={i} node={world.nodes[i.location]} onSelect={selectIncident} />)}
+      {Object.values(world.incidents)
+        .filter(i => i.status !== 'RESOLVED')
+        .map(i => (
+          <IncidentMarker
+            key={i.id}
+            incident={i}
+            node={world.nodes[i.location]}
+            world={world}
+            onSelect={selectIncident}
+            isSelected={selection?.kind === 'incident' && selection.id === i.id}
+            LabelComponent={Label}
+          />
+        ))}
       {Object.values(world.resources).map(r => <Vehicle key={r.id} resource={r} assignment={world.plan.assignments.find(a => a.resource_id === r.id)} allAssignments={world.plan.assignments} world={world} onSelect={selectEntity} selected={selection?.kind === 'vehicle' && selection.id === r.id} />)}
     </Suspense>
     </ThemeContext.Provider>

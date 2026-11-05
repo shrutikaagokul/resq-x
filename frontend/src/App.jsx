@@ -103,7 +103,17 @@ export default function App() {
     <main>
       <section className="map-container" aria-label="City simulator">
         <City3D world={world} />
-        <div className="map-heading"><span className="eyebrow">Eastbank district</span><h2>A city in motion.</h2><p>{Object.keys(world.nodes).length} intersections · {Object.keys(world.roads).length} roads</p></div>
+        <div className="map-heading">
+          <span className="map-heading-label">EASTBANK DISTRICT</span>
+          <h2 className="map-heading-title">A City in Motion</h2>
+          <div className="map-heading-tagline">
+            <span>REAL-TIME</span>
+            <span className="map-heading-dot" aria-hidden="true">•</span>
+            <span>RESPONSIVE</span>
+            <span className="map-heading-dot" aria-hidden="true">•</span>
+            <span>RESILIENT</span>
+          </div>
+        </div>
         <EntityDetails world={world} />
         <div className="map-bottom">
           <span className="map-hint">Drag to orbit · Scroll to zoom · Select an entity to inspect</span>

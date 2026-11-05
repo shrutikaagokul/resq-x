@@ -49,7 +49,20 @@ export default function EventControls({ world }) {
         <div className="form-grid">
           <label>
             Type
-            <select value={type} onChange={e => setType(e.target.value)}>
+            <select
+              value={type}
+              onChange={e => {
+                const nextType = e.target.value
+                setType(nextType)
+                if (nextType === 'MEDICAL') {
+                  if (patients === 0) setPatients(1)
+                } else if (nextType === 'ACCIDENT') {
+                  if (patients === 0) setPatients(1)
+                } else if (nextType === 'EVACUATION') {
+                  if (population < 30) setPopulation(45)
+                }
+              }}
+            >
               {['MEDICAL', 'FIRE', 'ACCIDENT', 'FLOOD', 'INDUSTRIAL', 'EVACUATION'].map(t => (
                 <option key={t}>{t}</option>
               ))}
@@ -81,14 +94,17 @@ export default function EventControls({ world }) {
         <button
           className="wide primary"
           style={{ marginTop: '12px' }}
-          onClick={() => act('/incidents', {
-            type,
-            location,
-            severity,
-            affected_population: population,
-            patients,
-            critical_patients: critical,
-          })}
+          onClick={() => {
+            const actualPatients = type === 'MEDICAL' ? Math.max(1, patients) : patients
+            act('/incidents', {
+              type,
+              location,
+              severity,
+              affected_population: population,
+              patients: actualPatients,
+              critical_patients: Math.min(critical, actualPatients),
+            })
+          }}
         >
           Create emergency
         </button>
